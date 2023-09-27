@@ -21,6 +21,17 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
   final _managerAPI = locator<ManagerAPI>();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!_managerAPI.isPatchesChangeEnabled() &&
+          _managerAPI.showPatchesChangeWarning()) {
+        _managerAPI.showPatchesChangeWarningDialog(context);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ViewModelBuilder<PatchesSelectorViewModel>.reactive(
       onViewModelReady: (model) => model.initialize(),
@@ -70,7 +81,7 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
                   child: Container(
                     margin: const EdgeInsets.only(top: 12, bottom: 12),
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                     decoration: BoxDecoration(
                       color: Theme.of(context)
                           .colorScheme
@@ -87,7 +98,8 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
                   ),
                 ),
                 CustomPopupMenu(
-                  onSelected: (value) => {model.onMenuSelection(value)},
+                  onSelected: (value) =>
+                  {model.onMenuSelection(value, context)},
                   children: {
                     0: I18nText(
                       'patchesSelectorView.loadPatchesSelection',
@@ -102,7 +114,7 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
                 ),
               ],
               bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(64.0),
+                preferredSize: const Size.fromHeight(66.0),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     vertical: 8.0,
@@ -139,7 +151,7 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
                   : Padding(
                       padding:
                           const EdgeInsets.symmetric(horizontal: 12.0).copyWith(
-                        bottom: MediaQuery.of(context).viewPadding.bottom + 8.0,
+                        bottom: MediaQuery.viewPaddingOf(context).bottom + 8.0,
                       ),
                       child: Column(
                         children: [
@@ -152,7 +164,11 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
                                   'patchesSelectorView.defaultTooltip',
                                 ),
                                 onPressed: () {
-                                  model.selectDefaultPatches();
+                                  if (_managerAPI.isPatchesChangeEnabled()) {
+                                    model.selectDefaultPatches();
+                                  } else {
+                                    model.showPatchesChangeDialog(context);
+                                  }
                                 },
                               ),
                               const SizedBox(width: 8),
@@ -163,7 +179,11 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
                                   'patchesSelectorView.noneTooltip',
                                 ),
                                 onPressed: () {
-                                  model.clearPatches();
+                                  if (_managerAPI.isPatchesChangeEnabled()) {
+                                    model.clearPatches();
+                                  } else {
+                                    model.showPatchesChangeDialog(context);
+                                  }
                                 },
                               ),
                             ],
@@ -179,13 +199,15 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
                                   supportedPackageVersions:
                                       model.getSupportedVersions(patch),
                                   isUnsupported: !isPatchSupported(patch),
+                                  isChangeEnabled:
+                                      _managerAPI.isPatchesChangeEnabled(),
                                   isNew: model.isPatchNew(
                                     patch,
                                     model.getAppInfo().packageName,
                                   ),
                                   isSelected: model.isSelected(patch),
                                   onChanged: (value) =>
-                                      model.selectPatch(patch, value),
+                                      model.selectPatch(patch, value, context),
                                 );
                               } else {
                                 return Container();
@@ -200,8 +222,23 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 10.0,
                                   ),
-                                  child: I18nText(
-                                    'patchesSelectorView.universalPatches',
+                                  child: Container(
+                                    padding: const EdgeInsets.only(
+                                      top: 10.0,
+                                      bottom: 10.0,
+                                      left: 5.0,
+                                    ),
+                                    child: I18nText(
+                                      'patchesSelectorView.universalPatches',
+                                      child: Text(
+                                        '',
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 ...model.getQueriedPatches(_query).map((patch) {
@@ -215,10 +252,15 @@ class _PatchesSelectorViewState extends State<PatchesSelectorView> {
                                       supportedPackageVersions:
                                           model.getSupportedVersions(patch),
                                       isUnsupported: !isPatchSupported(patch),
+                                      isChangeEnabled:
+                                          _managerAPI.isPatchesChangeEnabled(),
                                       isNew: false,
                                       isSelected: model.isSelected(patch),
-                                      onChanged: (value) =>
-                                          model.selectPatch(patch, value),
+                                      onChanged: (value) => model.selectPatch(
+                                        patch,
+                                        value,
+                                        context,
+                                      ),
                                     );
                                   } else {
                                     return Container();

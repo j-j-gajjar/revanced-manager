@@ -25,11 +25,14 @@ class PatcherAPI {
   late Directory _tmpDir;
   late File _keyStoreFile;
   List<Patch> _patches = [];
+  List<Patch> _universalPatches = [];
+  List<String> _compatiblePackages = [];
   Map filteredPatches = <String, List<Patch>>{};
   File? _outFile;
 
   Future<void> initialize() async {
     await _loadPatches();
+    await _managerAPI.downloadIntegrations();
     final Directory appCache = await getTemporaryDirectory();
     _dataDir = await getExternalStorageDirectory() ?? appCache;
     _tmpDir = Directory('${appCache.path}/patcher');
@@ -43,6 +46,24 @@ class PatcherAPI {
     }
   }
 
+  List<String> getCompatiblePackages() {
+    final List<String> compatiblePackages = [];
+    for (final Patch patch in _patches) {
+      for (final Package package in patch.compatiblePackages) {
+        if (!compatiblePackages.contains(package.name)) {
+          compatiblePackages.add(package.name);
+        }
+      }
+    }
+    return compatiblePackages;
+  }
+
+  List<Patch> getUniversalPatches() {
+    return _patches
+        .where((patch) => patch.compatiblePackages.isEmpty)
+        .toList();
+  }
+
   Future<void> _loadPatches() async {
     try {
       if (_patches.isEmpty) {
@@ -54,6 +75,9 @@ class PatcherAPI {
       }
       _patches = List.empty();
     }
+
+    _compatiblePackages = getCompatiblePackages();
+    _universalPatches = getUniversalPatches();
   }
 
   Future<List<ApplicationWithIcon>> getFilteredInstalledApps(
@@ -61,41 +85,32 @@ class PatcherAPI {
   ) async {
     final List<ApplicationWithIcon> filteredApps = [];
     final bool allAppsIncluded =
-        _patches.any((patch) => patch.compatiblePackages.isEmpty) &&
+        _universalPatches.isNotEmpty &&
             showUniversalPatches;
     if (allAppsIncluded) {
-      final allPackages = await DeviceApps.getInstalledApplications(
+      final appList = await DeviceApps.getInstalledApplications(
         includeAppIcons: true,
         onlyAppsWithLaunchIntent: true,
       );
-      for (final pkg in allPackages) {
-        if (!filteredApps.any((app) => app.packageName == pkg.packageName)) {
-          final appInfo = await DeviceApps.getApp(
-            pkg.packageName,
-            true,
-          ) as ApplicationWithIcon?;
-          if (appInfo != null) {
-            filteredApps.add(appInfo);
-          }
-        }
+
+      for(final app in appList) {
+        filteredApps.add(app as ApplicationWithIcon);
       }
     }
-    for (final Patch patch in _patches) {
-      for (final Package package in patch.compatiblePackages) {
-        try {
-          if (!filteredApps.any((app) => app.packageName == package.name)) {
-            final ApplicationWithIcon? app = await DeviceApps.getApp(
-              package.name,
-              true,
-            ) as ApplicationWithIcon?;
-            if (app != null) {
-              filteredApps.add(app);
-            }
+    for (final packageName in _compatiblePackages) {
+      try {
+        if (!filteredApps.any((app) => app.packageName == packageName)) {
+          final ApplicationWithIcon? app = await DeviceApps.getApp(
+            packageName,
+            true,
+          ) as ApplicationWithIcon?;
+          if (app != null) {
+            filteredApps.add(app);
           }
-        } on Exception catch (e) {
-          if (kDebugMode) {
-            print(e);
-          }
+        }
+      } on Exception catch (e) {
+        if (kDebugMode) {
+          print(e);
         }
       }
     }
@@ -103,6 +118,10 @@ class PatcherAPI {
   }
 
   List<Patch> getFilteredPatches(String packageName) {
+    if (!_compatiblePackages.contains(packageName)) {
+      return _universalPatches;
+    }
+
     final List<Patch> patches = _patches
         .where(
           (patch) =>
@@ -283,7 +302,7 @@ class PatcherAPI {
     return newName;
   }
 
-  Future<void> sharePatcherLog(String logs) async {
+  Future<void> exportPatcherLog(String logs) async {
     final Directory appCache = await getTemporaryDirectory();
     final Directory logDir = Directory('${appCache.path}/logs');
     logDir.createSync();
@@ -293,10 +312,15 @@ class PatcherAPI {
         .replaceAll(':', '')
         .replaceAll('T', '')
         .replaceAll('.', '');
-    final File log =
-        File('${logDir.path}/revanced-manager_patcher_$dateTime.log');
+    final String fileName = 'revanced-manager_patcher_$dateTime.log';
+    final File log = File('${logDir.path}/$fileName');
     log.writeAsStringSync(logs);
-    ShareExtend.share(log.path, 'file');
+    CRFileSaver.saveFileWithDialog(
+      SaveFileDialogParams(
+        sourceFilePath: log.path,
+        destinationFileName: fileName,
+      ),
+    );
   }
 
   String getSuggestedVersion(String packageName) {
