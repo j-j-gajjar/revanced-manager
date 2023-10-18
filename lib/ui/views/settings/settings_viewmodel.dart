@@ -71,16 +71,16 @@ class SettingsViewModel extends BaseViewModel {
           actions: [
             CustomMaterialButton(
               isFilled: false,
-              label: I18nText('noButton'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            CustomMaterialButton(
               label: I18nText('yesButton'),
               onPressed: () {
                 _managerAPI.setChangingToggleModified(true);
                 _managerAPI.setPatchesChangeEnabled(true);
+                Navigator.of(context).pop();
+              },
+            ),
+            CustomMaterialButton(
+              label: I18nText('noButton'),
+              onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
@@ -135,12 +135,12 @@ class SettingsViewModel extends BaseViewModel {
     notifyListeners();
   }
 
-  bool areExperimentalPatchesEnabled() {
-    return _managerAPI.areExperimentalPatchesEnabled();
+  bool isVersionCompatibilityCheckEnabled() {
+    return _managerAPI.isVersionCompatibilityCheckEnabled();
   }
 
-  void useExperimentalPatches(bool value) {
-    _managerAPI.enableExperimentalPatchesStatus(value);
+  void useVersionCompatibilityCheck(bool value) {
+    _managerAPI.enableVersionCompatibilityCheckStatus(value);
     notifyListeners();
   }
 
@@ -244,6 +244,11 @@ class SettingsViewModel extends BaseViewModel {
       }
       _toast.showBottom('settingsView.keystoreSelectorErrorMessage');
     }
+  }
+
+  void resetAllOptions() {
+    _managerAPI.resetAllOptions();
+    _toast.showBottom('settingsView.resetStoredOptions');
   }
 
   void resetSelectedPatches() {

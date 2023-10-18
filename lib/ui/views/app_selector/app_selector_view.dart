@@ -23,7 +23,6 @@ class _AppSelectorViewState extends State<AppSelectorView> {
       onViewModelReady: (model) => model.initialize(),
       viewModelBuilder: () => AppSelectorViewModel(),
       builder: (context, model, child) => Scaffold(
-        resizeToAvoidBottomInset: false,
         floatingActionButton: FloatingActionButton.extended(
           label: I18nText('appSelectorView.storageButton'),
           icon: const Icon(Icons.sd_storage),
@@ -39,13 +38,11 @@ class _AppSelectorViewState extends State<AppSelectorView> {
               floating: true,
               title: I18nText(
                 'appSelectorView.viewTitle',
-                child: Text(
-                  '',
-                  style: TextStyle(
+              ),
+              titleTextStyle: TextStyle(
+                fontSize: 22.0,
                     color: Theme.of(context).textTheme.titleLarge!.color,
                   ),
-                ),
-              ),
               leading: IconButton(
                 icon: Icon(
                   Icons.arrow_back,
